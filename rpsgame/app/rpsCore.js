@@ -7,7 +7,7 @@ import {
     FilesetResolver,
 } from '@mediapipe/tasks-vision';
 
-export default function rpsCore() {
+export default function RpsCore() {
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const [gestureName, setGestureName] = useState('Waiting...');
