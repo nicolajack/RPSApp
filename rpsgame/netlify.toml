@@ -1,6 +1,6 @@
 [build]
   base = "rpsgame"
-  publish = "rpsgame/.next"
+  publish = ".next"
   command = "npm run build"
 
 [[plugins]]
