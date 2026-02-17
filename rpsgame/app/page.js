@@ -19,132 +19,162 @@ export default function RpsCore() {
 
     useEffect(() => {
         if (buttonClicked) {
-          let gestureRecognizer;
-          let running = true;
+            let gestureRecognizer;
+            let running = true;
+            let stream;
 
-          async function init() {
-          const vision = await FilesetResolver.forVisionTasks(
-              'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm'
-          );
+            async function init() {
+            const vision = await FilesetResolver.forVisionTasks(
+                'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm'
+            );
 
-          // assigning model to recognizer
-          gestureRecognizer = await GestureRecognizer.createFromOptions(vision, {
-              baseOptions: {
-              modelAssetPath: './gesture_recognizer.task',
-              delegate: 'GPU',
-              },
-              runningMode: 'VIDEO',
-          });
+            // assigning model to recognizer
+            gestureRecognizer = await GestureRecognizer.createFromOptions(vision, {
+                baseOptions: {
+                modelAssetPath: './gesture_recognizer.task',
+                delegate: 'GPU',
+                },
+                runningMode: 'VIDEO',
+            });
 
-          // initializing video & cnavas to display video
-          const video = videoRef.current;
-          const canvas = canvasRef.current;
-          const ctx = canvas.getContext('2d');
+            // initializing video & cnavas to display video
+            const video = videoRef.current;
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext('2d');
 
-          // asks for camera perms
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          video.srcObject = stream;
-          await video.play();
+            // asks for camera perms
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+            await video.play();
 
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
 
-          // starts a countdown from 5 for rps game
-          let countdownStart = Date.now();
+            // starts a countdown from 5 for rps game
+            let countdownStart = Date.now();
 
-          const loop = () => {
-              if (!running) return;
+            const loop = () => {
+                if (!running) return;
 
-              // mirrors video
-              ctx.save();
-              ctx.scale(-1, 1);
-              ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-              ctx.restore();
+                // mirrors video
+                ctx.save();
+                ctx.scale(-1, 1);
+                ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+                ctx.restore();
 
-              // countdown
-              const now = Date.now();
-              const secondsElapsed = Math.floor((now - countdownStart) / 1000);
-              const secondsRemaining = 5 - secondsElapsed;
+                // countdown
+                const now = Date.now();
+                const secondsElapsed = Math.floor((now - countdownStart) / 1000);
+                const secondsRemaining = 5 - secondsElapsed;
 
-              // canvas display
-              ctx.fillStyle = 'rgba(93, 137, 239, 0.6)';
-              ctx.fillRect(120, 0, 400, 45);
-              ctx.fillStyle = 'rgb(247 206 56)';
-              ctx.font = 'bold 22px sans-serif';
-              ctx.fillText(`rock, paper, scissors, shoot! in: ${secondsRemaining}`, 140, 30);
+                // canvas display
+                ctx.fillStyle = 'rgba(0, 40, 0, 0.3)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'rgba(0, 0, 0, .8)';
+                ctx.fillRect(0, canvas.height - 50, canvas.width, 50)
+                ctx.font = '22px "VT232", monospace';
+                ctx.fillStyle = 'white';
+                ctx.fillText(
+                    secondsRemaining > 0
+                        ? `> SHOOT IN ${secondsRemaining}...`
+                        : '> ANALYZING...',
+                    canvas.width / 2,
+                    canvas.height - 16
+                );
+                ctx.textAlign = 'center';
+                if (secondsRemaining > 0) {
+                requestAnimationFrame(loop);
+                } else {
+                const result = gestureRecognizer.recognizeForVideo(video, Date.now());
 
-              if (secondsRemaining > 0) {
-              requestAnimationFrame(loop);
-              } else {
-              const result = gestureRecognizer.recognizeForVideo(video, Date.now());
+                // recognizing logic
+                let name = 'UNKNOWN';
+                if (
+                    result.gestures.length > 0 &&
+                    result.gestures[0].length > 0
+                ) {
+                    name = result.gestures[0][0].categoryName;
+                    if (name === 'Open_Palm') name = 'PAPER';
+                    if (name === 'Closed_Fist') name = 'ROCK';
+                    if (name === 'Victory') name = 'SCISSORS';
+                }
 
-              // recognizing logic
-              let name = 'no gesture recognized';
-              if (
-                  result.gestures.length > 0 &&
-                  result.gestures[0].length > 0
-              ) {
-                  name = result.gestures[0][0].categoryName;
-                  if (name === 'Open_Palm') name = 'paper';
-                  if (name === 'Closed_Fist') name = 'rock';
-                  if (name === 'Victory') name = 'scissors';
-              }
+                // computer choice logic
+                const computer = ['ROCK', 'PAPER', 'SCISSORS'][
+                    Math.floor(Math.random() * 3)
+                ];
 
-              // computer choice logic
-              const computer = ['rock', 'paper', 'scissors'][
-                  Math.floor(Math.random() * 3)
-              ];
+                // shows results
+                let resultText;
+                if (name === computer) {
+                    resultText = `DRAW // YOU: ${name} - CPU: ${name}`;
+                } else if (
+                    (name === 'ROCK' && computer === 'SCISSORS') ||
+                    (name === 'PAPER' && computer === 'ROCK') ||
+                    (name === 'SCISSORS' && computer === 'PAPER')
+                ) {
+                    resultText = `YOU WIN // YOU: ${name} - CPU: ${computer}`;
+                } else {
+                    resultText = `YOU LOSE // YOU: ${name} - CPU: ${computer}`;
+                }
 
-              // shows results
-              let resultText;
-              if (name === computer) {
-                  resultText = `u tied! both u and the computer chose ${name}`;
-              } else if (
-                  (name === 'rock' && computer === 'scissors') ||
-                  (name === 'paper' && computer === 'rock') ||
-                  (name === 'scissors' && computer === 'paper')
-              ) {
-                  resultText = `u win! u chose ${name}, and the computer chose ${computer}`;
-              } else {
-                  resultText = `u lose! u chose ${name}, and the computer chose ${computer}`;
-              }
+                setGameResult(resultText);
+                }
+            };
 
-              setGameResult(resultText);
-              }
-          };
+            requestAnimationFrame(loop);
+            }
 
-          requestAnimationFrame(loop);
-          }
+            init();
 
-          init();
+            return () => {
+            // figure out where to put this so it works as expected..
 
-          return () => {
-          // figure out where to put this so it works as expected..
+                running = false;
+                setButtonClicked(!buttonClicked);
 
-          running = false;
-          setButtonClicked(!buttonClicked);
-
-          };
+            };
         }
     }, [buttonClicked]);
 
+    let date = new Date().toLocaleDateString();
+
     return (
-        <main className="h-screen flex items-center justify-center flex-col gap-4">
-            <p className="text-[#E87777] font-bold text-3xl">are you ready to rock? paper... scissors...</p>
+        <main className="h-screen flex items-center justify-center flex-col gap-3" id="crt">
+            <div id="titlediv">
+                <p className="title">rock, paper, scissors</p>
+                <p className="cursor">_</p>
+            </div>
+            <p className='subtitle'>GESTURE RECOGNITION TERMINAL</p>
             <video ref={videoRef} style={{ display: 'none' }}></video>
             {!buttonClicked ? (
-                <img src="./rps.png" alt="rock paper scissors" className="scale-200 m-20" />
+                <div className="monitor-frame">
+                    <div className="monitor-inner">
+                        <img
+                            src="./8bitrps.png"
+                            alt="rock paper scissors"
+                            className="w-48 h-48 object-contain"
+                            id="image"
+                        />
+                        <p className="awaiting-text">&gt; AWAITING INPUT_</p>
+                    </div>
+                </div>
             ) : (
-              <canvas ref={canvasRef} className="border-2 border-[#5D89EF] rounded-lg"></canvas>
+                <div className="monitor-frame">
+                    <canvas ref={canvasRef}></canvas>
+                </div>
             )}
-            <button type="button" onClick={handleClick} className="text-[#F7CE38] font-bold text-2xl bg-[#5D89EF] hover:bg-[#3F6EDD] rounded-lg px-5 py-2.5 me-2 mb-2">
-                {!buttonClicked ? 'play' : 'stop'}
+            <button type="button" onClick={handleClick} className="button">
+                {!buttonClicked ? 'EXECUTE' : 'TERMINATE'}
             </button>
-            {!buttonClicked ? (
-                <p className="text-[#E87777] font-bold text-xl">click the button to start the game!</p>
-            ) : (
-                <p className="text-[#E87777] font-bold text-xl">result: {gameResult}</p>
-            )}
+            <div className='outputBar'>
+                {!buttonClicked ? (
+                    <p className="status-text">Click to start.</p>
+                ) : (
+                    <p className="status-text">result: {gameResult}</p>
+                )}
+            </div>
+            <p className="footer-text">SYS://RPS_TERMINAL — {date}</p>
         </main>
     );
 }
